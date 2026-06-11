@@ -1,9 +1,10 @@
 ### ENV
 @host = http://localhost:8080
 @token = akadmin_token_xyz123
-@tenant = org_beauty_salon_777
+@tenant = cafe_452
 
-POST http://localhost:8080/review/telegram
+
+POST {{host}}/review/telegram
 Content-Type: application/json
 
 {
@@ -13,7 +14,7 @@ Content-Type: application/json
     },
     "payload": {
       "session_id": "01HZF7B6Z8E5V9XW42A7Q9P123",
-      "business_id": "cafe_452",
+      "business_id": "{{tenant}}",
       "customer": {
         "platform_user_id": "tg_user_998231",
         "phone": "+79991234567",

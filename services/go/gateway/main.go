@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -105,7 +106,8 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	topic := fmt.Sprintf("reviews.v1.inbound.%s.%s", platform, businessID)
-	err = s.nc.Publish(topic, body)
+	msg, err := s.nc.Request(topic, body, 5*time.Second)
+	log.Printf("Received message: %s", msg.Data)
 	if err != nil {
 		log.Printf("Error publishing message to NATS: %v\n", err)
 		http.Error(w, "Error publishing message to NATS", http.StatusInternalServerError)
