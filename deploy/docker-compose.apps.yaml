@@ -1,0 +1,15 @@
+services:
+  gateway:
+    image: reputation/gateway:latest
+    container_name: gateway
+    build:
+      context: ..
+      dockerfile: services/go/gateway/Dockerfile
+    networks:
+      - reputation-tier
+    environment:
+      - NATS_URL=nats://nats:4222
+
+networks:
+  reputation-tier:
+    external: true # network defined in docker-compose.infra.yaml
