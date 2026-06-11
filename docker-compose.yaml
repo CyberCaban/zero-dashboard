@@ -1,0 +1,25 @@
+
+services:
+  # --- Message Broker ---
+  nats:
+    image: nats:2.11.6-alpine
+    container_name: nats-core-broker
+    networks:
+      - reputation-tier
+    ports:
+      - "4222:4222"   # client
+      - "8222:8222"   # monitoring HTTP
+    command:
+      - "--http_port=8222"
+      - "--js"
+      - "--sd=/data"
+    volumes:
+      - nats_persistence:/data
+    
+
+volumes:
+  nats_persistence:
+
+networks:
+  reputation-tier:
+    driver: bridge
