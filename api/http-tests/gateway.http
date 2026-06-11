@@ -1,0 +1,28 @@
+### ENV
+@host = http://localhost:8080
+@token = akadmin_token_xyz123
+@tenant = org_beauty_salon_777
+
+POST http://localhost:8080/review/telegram
+Content-Type: application/json
+
+{
+    "metadata": {
+      "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "timestamp": 1781003421
+    },
+    "payload": {
+      "session_id": "01HZF7B6Z8E5V9XW42A7Q9P123",
+      "business_id": "cafe_452",
+      "customer": {
+        "platform_user_id": "tg_user_998231",
+        "phone": "+79991234567",
+        "name": "Иван Иванов"
+      },
+      "message": {
+        "message_id": "msg_88231",
+        "text": "Принесли холодный суп, официант хамил!",
+        "raw_rating": 2
+      }
+    }
+}
