@@ -1,0 +1,66 @@
+commitizen:
+    # === ФОРМАТ КОММИТОВ ===
+    name: cz_customize
+    version_provider: scm
+    version_scheme: semver
+
+    # === ВЕРСИОНИРОВАНИЕ ===
+    major_version_zero: true
+    tag_format: "v$version"
+
+    # === CHANGELOG ===
+    update_changelog_on_bump: true
+    changelog_file: "CHANGELOG.md"
+    changelog_format: "md"
+    changelog_incremental: false
+
+    # === СООБЩЕНИЕ ПРИ ОБНОВЛЕНИИ ВЕРСИИ ===
+    bump_message: "chore(release): v$current_version -> v$new_version"
+
+    # === ПРОВЕРКА КОММИТОВ ===
+    check_commit_message: true
+    min_message_length: 10
+    max_message_length: 72
+
+    customize:
+      message_template: '{{change_type}}({{scope}}): {{subject}}'
+      schema: '<type>(<scope>): <subject>'
+      questions:
+      - type: list
+        name: change_type
+        message: "Select the type of change you are committing"
+        choices:
+          - value: feat
+            name: "feat: A new feature"
+          - value: fix
+            name: "fix: A bug fix"
+          - value: docs
+            name: "docs: Documentation only changes"
+          - value: style
+            name: "style: Code style changes (formatting, etc)"
+          - value: refactor
+            name: "refactor: Code refactoring"
+          - value: perf
+            name: "perf: Performance improvements"
+          - value: test
+            name: "test: Adding or correcting tests"
+          - value: build
+            name: "build: Build system or dependencies"
+          - value: ci
+            name: "ci: CI configuration changes"
+          - value: chore
+            name: "chore: Changes to .gitignore, .cz.yaml, or tool configs"
+          - value: revert
+            name: "revert: Revert a previous commit"
+
+      - type: input
+        name: scope
+        message: "What is the scope of this change? (press enter to skip)"
+      
+      - type: input
+        name: subject
+        message: "Write a short summary of the change (lower case, no period):"
+      
+      - type: input
+        name: body
+        message: "Provide additional details (press enter to skip):"
