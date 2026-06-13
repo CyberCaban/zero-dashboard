@@ -6,10 +6,10 @@ services:
       context: ..
       dockerfile: services/go/gateway/Dockerfile
     networks:
-      - reputation-tier
+      - zero-dashboard
     environment:
       - NATS_URL=nats://nats:4222
 
 networks:
-  reputation-tier:
+  zero-dashboard:
     external: true # network defined in docker-compose.infra.yaml

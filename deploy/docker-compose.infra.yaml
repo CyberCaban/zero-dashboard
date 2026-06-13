@@ -1,10 +1,12 @@
+include:
+  - path: docker-compose.authentik.yaml
 services:
   # --- Message Broker ---
   nats:
     image: nats:2.11.6-alpine
     container_name: nats-core-broker
     networks:
-      - reputation-tier
+      - zero-dashboard
     ports:
       - "4222:4222"   # client
       - "8222:8222"   # monitoring HTTP
@@ -14,12 +16,37 @@ services:
       - "--sd=/data"
     volumes:
       - nats_persistence:/data
-    
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${PG_DB:-authentik}
+      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      BUSINESS_DB: ${BUSINESS_DB:-reputation_platform}
+    healthcheck:
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      test:
+        - CMD-SHELL
+        - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      timeout: 5s
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d/
+    networks:
+      - zero-dashboard
 
 volumes:
   nats_persistence:
+    driver: local
+  database:
+    driver: local
 
 networks:
-  reputation-tier:
-    name: reputation-tier
+  zero-dashboard:
+    name: zero-dashboard
     driver: bridge

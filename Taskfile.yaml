@@ -1,20 +1,42 @@
-version: '3'
+version: "3"
 
 env:
-  NATS_URL: http://localhost:4222/ 
 
 tasks:
-  up-infra:
+  docker:logs:
+    desc: "View logs for all services"
+    cmds:
+      - docker-compose -f deploy/docker-compose.infra.yaml logs -f
+      - docker-compose -f deploy/docker-compose.apps.yaml logs -f
+
+  docker:up:
+    desc: "Start all services (infrastructure and applications)"
+    cmds:
+      - task: docker:up-infra
+      - task: docker:up-apps
+
+  docker:down:
+    desc: "Stop all services (infrastructure and applications)"
+    cmds:
+      - task: docker:down-infra
+      - task: docker:down-apps
+
+  docker:up-infra:
     desc: "Start infrastructure services (NATS, etc.)"
     cmds:
       - docker-compose -f deploy/docker-compose.infra.yaml up -d
 
-  down-infra:
+  docker:down-infra:
     desc: "Stop infrastructure services"
     cmds:
       - docker-compose -f deploy/docker-compose.infra.yaml down
 
-  up-apps:
+  docker:up-apps:
     desc: "Start application services (gateway, etc.)"
     cmds:
       - docker-compose -f deploy/docker-compose.apps.yaml up -d
+
+  docker:down-apps:
+    desc: "Stop application services"
+    cmds:
+      - docker-compose -f deploy/docker-compose.apps.yaml down
