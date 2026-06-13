@@ -50,6 +50,12 @@ services:
       - ./init-scripts:/docker-entrypoint-initdb.d/
     networks:
       - zero-dashboard
+  # --- Dashboard Backend (placeholder) ---
+  dashboard-app:
+    image: nginx:alpine
+    container_name: strategic-dashboard-backend
+    networks:
+      - zero-dashboard
 
 volumes:
   nats_persistence:
