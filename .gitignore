@@ -3,3 +3,7 @@
 **/.go/
 **/.cargo/
 **/.env
+**/*.tfvars
+**/.terraform/
+*.tfstate
+*.tfstate.*
