@@ -13,9 +13,6 @@ services:
       AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.3}
-    ports:
-    - ${COMPOSE_PORT_HTTP:-9000}:9000
-    - ${COMPOSE_PORT_HTTPS:-9443}:9443
     restart: unless-stopped
     shm_size: 512mb
     networks:
@@ -46,20 +43,16 @@ services:
     - ./data:/data
     - ./certs:/certs
     - ./custom-templates:/templates
-  authentik_proxy:
-    image: ghcr.io/goauthentik/proxy
-    # TODO: remove ports when using Traefik or another reverse proxy in front of Authentik
-    ports:
-        - 9001:9000
-        - 9444:9443
-    environment:
-        AUTHENTIK_HOST: http://server:9000
-        AUTHENTIK_INSECURE: "false"
-        AUTHENTIK_TOKEN: token-generated-by-authentik
-        # Optional setting to be used when `authentik_host` for internal communication doesn't match the public URL.
-        # AUTHENTIK_HOST_BROWSER: https://external-domain.tld
-    networks:
-      - zero-dashboard
+  # authentik_proxy:
+  #   image: ghcr.io/goauthentik/proxy
+  #   environment:
+  #       AUTHENTIK_HOST: http://server:9000
+  #       AUTHENTIK_INSECURE: "true"
+  #       AUTHENTIK_TOKEN: ak_outpost_dXy4CuUrkNnRYfWTBP6HQF0MDi1Dn76zE6fVUGcguU0OuyKWt2v0EaDSwRqG
+  #       # Optional setting to be used when `authentik_host` for internal communication doesn't match the public URL.
+  #       AUTHENTIK_HOST_BROWSER: http://authentik.local
+  #   networks:
+  #     - zero-dashboard
 volumes:
   database:
     driver: local
