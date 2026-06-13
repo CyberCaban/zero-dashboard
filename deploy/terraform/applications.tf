@@ -10,20 +10,18 @@ data "authentik_flow" "default_authentication" {
   slug = "default-authentication-flow"
 }
 
-# Пользователь akadmin (ID=1 — ненадёжно; ищем по username)
 data "authentik_user" "akadmin" {
   username = "akadmin"
 }
 
-# --- Операционный слой (Gateway) ---
-
 resource "authentik_provider_proxy" "gateway_provider" {
-  name               = "gateway-proxy-provider"
-  mode               = "forward_single"
-  external_host      = "http://api.${var.app_domain}"
-  internal_host      = "http://gateway:8080"
-  authorization_flow = authentik_flow.magic_link_flow.uuid
-  invalidation_flow  = data.authentik_flow.default_invalidation.id
+  name                = "gateway-proxy-provider"
+  mode                = "proxy"
+  external_host       = "http://api.${var.app_domain}"
+  internal_host       = "http://gateway:8080"
+  authorization_flow  = authentik_flow.magic_link_authz_flow.uuid
+  authentication_flow = authentik_flow.magic_link_flow.uuid
+  invalidation_flow   = data.authentik_flow.default_invalidation.id
 
   property_mappings = [
     authentik_property_mapping_provider_scope.b2b_context.id
@@ -38,15 +36,14 @@ resource "authentik_application" "gateway_app" {
   meta_launch_url    = "http://api.${var.app_domain}"
 }
 
-# --- Стратегический слой (Dashboard) ---
-
 resource "authentik_provider_proxy" "dashboard_provider" {
-  name               = "dashboard-proxy-provider"
-  mode               = "forward_single"
-  external_host      = "http://dash.${var.app_domain}"
-  internal_host      = "http://dashboard-app:80"
-  authorization_flow = authentik_flow.magic_link_flow.uuid
-  invalidation_flow  = data.authentik_flow.default_invalidation.id
+  name                = "dashboard-proxy-provider"
+  mode                = "proxy"
+  external_host       = "http://dash.${var.app_domain}"
+  internal_host       = "http://dashboard-app:80"
+  authorization_flow  = authentik_flow.magic_link_authz_flow.uuid
+  authentication_flow = authentik_flow.magic_link_flow.uuid
+  invalidation_flow   = data.authentik_flow.default_invalidation.id
 
   property_mappings = [
     authentik_property_mapping_provider_scope.b2b_context.id
@@ -60,12 +57,16 @@ resource "authentik_application" "dashboard_app" {
   meta_launch_url   = "http://dash.${var.app_domain}"
 }
 
-# --- Политики доступа ---
-
-# Дашборд доступен только role_owner
+# --- Policies ---
 resource "authentik_policy_expression" "only_owners_allowed" {
   name       = "only-owners-allowed-policy"
-  expression = "return 'role_owner' in [g.name for g in request.user.ak_groups.all()]"
+  expression = <<-EOF
+    # Если пользователь анонимный, не ломаем флоу, даем Authentik запустить аутентификацию
+    if not request.user or request.user.is_anonymous:
+        return True
+        
+    return request.user.groups.filter(name="role_owner").exists()
+  EOF
 }
 
 resource "authentik_policy_binding" "bind_dashboard_policy" {
@@ -74,13 +75,14 @@ resource "authentik_policy_binding" "bind_dashboard_policy" {
   order  = 0
 }
 
-# Gateway доступен role_owner и role_manager
+# Gateway only for role_owner and role_manager
 resource "authentik_policy_expression" "owners_and_managers_allowed" {
   name       = "owners-and-managers-allowed-policy"
   expression = <<-EOF
-    allowed = {"role_owner", "role_manager"}
-    user_roles = {g.name for g in request.user.ak_groups.all()}
-    return bool(allowed & user_roles)
+    if not request.user or request.user.is_anonymous:
+        return True
+        
+    return request.user.groups.filter(name__in=["role_owner", "role_manager"]).exists()
   EOF
 }
 
@@ -90,8 +92,7 @@ resource "authentik_policy_binding" "bind_gateway_policy" {
   order  = 0
 }
 
-# --- Аутпост ---
-
+# --- Outpost ---
 resource "authentik_outpost" "zero_dashboard_outpost" {
   name = "zero-dashboard-proxy-outpost"
   type = "proxy"
@@ -108,7 +109,7 @@ resource "authentik_outpost" "zero_dashboard_outpost" {
   ]
 }
 
-# --- API Token для бэкенда (через data source, без hardcode ID) ---
+# --- API Token for backend services (if needed) ---
 
 resource "authentik_token" "backend_api_token" {
   identifier = "backend-api-token"
