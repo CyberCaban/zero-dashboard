@@ -5,3 +5,5 @@
 **/.env
 **/secrets.tfvars
 **/.terraform/
+*.tfstate
+*.tfstate.*
