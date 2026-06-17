@@ -24,7 +24,7 @@ struct Message {
 }
 
 #[derive(Debug, Deserialize)]
-struct Payload {
+struct RequestPayload {
     session_id: String,
     business_id: String,
     customer: Customer,
@@ -34,7 +34,7 @@ struct Payload {
 #[derive(Debug, Deserialize)]
 struct ReviewRequest {
     metadata: Metadata,
-    payload: Payload,
+    payload: RequestPayload,
 }
 
 #[tokio::main]
@@ -60,6 +60,15 @@ async fn main() -> Result<()> {
                 continue;
             }
         };
+        // Headers: X-Tenant-ID, X-User-Email, X-User-Username, X-User-Groups, X-Allowed-Locations, X-Sub
+        // let Some(headers) = message.headers.as_ref() else {
+        //     tracing::error!("No headers found in the message");
+        //     continue;
+        // };
+        // let Some(tenant_id) = headers.get("X-Tenant-ID") else {
+        //     tracing::error!("No X-Tenant-ID found in the headers");
+        //     continue;
+        // };
 
         tracing::info!(
             session_id = %req.payload.session_id,
@@ -67,8 +76,10 @@ async fn main() -> Result<()> {
             "Received inbound review request"
         );
 
+        println!("Received review request: {:#?}", req);
+
         let Some(reply_to) = message.reply else {
-            tracing::debug!("No reply subject found in the message");
+            tracing::error!("No reply subject found in the message");
             continue;
         };
 
