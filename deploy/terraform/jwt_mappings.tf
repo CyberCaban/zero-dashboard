@@ -16,7 +16,7 @@ resource "authentik_property_mapping_provider_scope" "b2b_context" {
     return {
         "tenant_id":         user.attributes.get("tenant_id", "unknown_tenant"),
         "allowed_locations": user.attributes.get("allowed_locations", []),
-        "roles":             [g.name for g in request.user.groups.all()],
+        "roles":             [g.name for g in request.user.ak_groups.all()],
     }
   EOF
 }

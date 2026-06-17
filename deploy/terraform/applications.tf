@@ -22,7 +22,7 @@ resource "authentik_provider_proxy" "gateway_provider" {
   name                = "gateway-proxy-provider"
   mode                = "proxy"
   external_host       = "http://api.${var.app_domain}"
-  internal_host       = "http://gateway:8080"
+  internal_host       = var.gateway_internal_host
   authentication_flow = authentik_flow.magic_link_flow.uuid
   authorization_flow  = authentik_flow.magic_link_authz_flow.uuid
   invalidation_flow   = data.authentik_flow.default_invalidation.id

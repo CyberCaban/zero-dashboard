@@ -17,6 +17,11 @@ tasks:
     desc: "Apply Terraform changes in the infrastructure directory"
     cmds:
       - terraform -chdir=deploy/terraform apply -auto-approve
+  
+  tf:apply:local:
+    desc: "Apply Terraform changes using local state (for development)"
+    cmds:
+      - terraform -chdir=deploy/terraform apply -auto-approve -var="gateway_internal_host=http://host.docker.internal:8080" {{.CLI_ARGS}}
 
   docker:logs:
     desc: "View logs for all services"

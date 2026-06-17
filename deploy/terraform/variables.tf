@@ -15,3 +15,8 @@ variable "app_domain" {
   default = "zero-dashboard.local"
   description = "Platform domain"
 }
+
+variable "gateway_internal_host" {
+  type    = string
+  default = "http://gateway:8080"
+}
