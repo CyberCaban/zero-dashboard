@@ -47,10 +47,27 @@ async fn main() -> Result<()> {
     tracing::info!("Connecting to NATS at {}...", nats_url);
     let client = async_nats::connect(nats_url).await?;
     let subject = "reviews.v1.inbound.>";
-    let mut sub = client.subscribe(subject).await?;
+    let js = async_nats::jetstream::new(client);
+    let inbound_stream = js
+        .get_or_create_stream(async_nats::jetstream::stream::Config {
+            name: "inbound-reviews".to_string(),
+            subjects: vec![subject.to_string()],
+            ..Default::default()
+        })
+        .await?;
+    let consumer = inbound_stream
+        .get_or_create_consumer(
+            "review-gating",
+            async_nats::jetstream::consumer::pull::Config {
+                durable_name: Some("review-gating".to_string()),
+                ..Default::default()
+            },
+        )
+        .await?;
     tracing::info!("Successfully subscribed to '{}'", subject);
 
-    while let Some(message) = sub.next().await {
+    let mut messages = consumer.messages().await?;
+    while let Some(Ok(message)) = messages.next().await {
         let start_time = Instant::now();
 
         let req: ReviewRequest = match serde_json::from_slice(&message.payload) {
@@ -60,15 +77,6 @@ async fn main() -> Result<()> {
                 continue;
             }
         };
-        // Headers: X-Tenant-ID, X-User-Email, X-User-Username, X-User-Groups, X-Allowed-Locations, X-Sub
-        // let Some(headers) = message.headers.as_ref() else {
-        //     tracing::error!("No headers found in the message");
-        //     continue;
-        // };
-        // let Some(tenant_id) = headers.get("X-Tenant-ID") else {
-        //     tracing::error!("No X-Tenant-ID found in the headers");
-        //     continue;
-        // };
 
         tracing::info!(
             session_id = %req.payload.session_id,
@@ -78,23 +86,31 @@ async fn main() -> Result<()> {
 
         println!("Received review request: {:#?}", req);
 
-        let Some(reply_to) = message.reply else {
-            tracing::error!("No reply subject found in the message");
-            continue;
-        };
-
         let reply_payload = r#"{"status":"success"}"#;
-        if let Err(err) = client.publish(reply_to.clone(), reply_payload.into()).await {
+        if let Err(err) = js
+            .publish(
+                format!("review.v1.escalate.{}", req.payload.business_id),
+                reply_payload.into(),
+            )
+            .await
+        {
             tracing::error!(
-                reply_to = %reply_to,
+                business_id = %req.payload.business_id,
                 error = %err,
                 "Failed to publish reply"
             );
         } else {
             tracing::debug!(
-                reply_to = %reply_to,
+                business_id = %req.payload.business_id,
                 elapsed_ms = %start_time.elapsed().as_millis(),
                 "Successfully published reply"
+            );
+        }
+        if let Err(err) = message.ack().await {
+            tracing::error!(
+                business_id = %req.payload.business_id,
+                error = %err,
+                "Failed to acknowledge message"
             );
         }
     }

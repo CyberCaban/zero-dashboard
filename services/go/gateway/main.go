@@ -65,6 +65,7 @@ type AuthentikJWT struct {
 
 type Server struct {
 	nc *nats.Conn
+	js nats.JetStreamContext
 }
 
 func main() {
@@ -78,9 +79,18 @@ func main() {
 		return
 	}
 	defer nc.Close()
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatalf("Error getting JetStream context: %v\n", err)
+		return
+	}
+	js.AddStream(&nats.StreamConfig{
+		Name:     "inbound-reviews",
+		Subjects: []string{"reviews.v1.inbound.>"},
+	})
 	log.Printf("Connected to NATS at %s\n", natsURL)
 
-	app := &Server{nc: nc}
+	app := &Server{nc: nc, js: js}
 
 	// Handle POST /v1/webhooks/telegram/{secret}
 	http.HandleFunc("/v1/webhooks/telegram/", app.handleTGWebhook)
@@ -223,13 +233,13 @@ func (s *Server) handleTGWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("Publishing message to topic %s\n", subject)
-	msg, err := s.nc.RequestMsg(message, 5*time.Second)
+	ack, err := s.js.PublishMsg(message)
 	if err != nil {
 		log.Printf("Error publishing message to NATS: %v\n", err)
 		http.Error(w, "Error publishing message to NATS", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Received message: %s", msg.Data)
+	log.Printf("Message published with sequence %d\n", ack.Sequence)
 	log.Printf("Published message to topic %s\n", subject)
 
 	w.Header().Set("Content-Type", "application/json")
