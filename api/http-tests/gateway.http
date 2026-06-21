@@ -1,5 +1,5 @@
 ### ENV
-@host = http://localhost:8080
+@host = http://api.zero-dashboard.local
 @token = akadmin_token_xyz123
 
 

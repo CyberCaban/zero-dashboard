@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go"
 )
 
@@ -92,9 +93,12 @@ func main() {
 
 	app := &Server{nc: nc, js: js}
 
+	r := chi.NewRouter()
+	r.Route("/v1/webhooks/telegram", func(r chi.Router) {
+		r.Post("/{secret}", app.handleTGWebhook)
+	})
 	// Handle POST /v1/webhooks/telegram/{secret}
-	http.HandleFunc("/v1/webhooks/telegram/", app.handleTGWebhook)
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		jwtHeader := r.Header.Get("X-Authentik-Jwt")
 		if jwtHeader == "" {
 			log.Println("No JWT token provided in health check request")
@@ -123,7 +127,7 @@ func main() {
 
 	port := ":8080"
 	log.Printf("Starting server on port %s\n", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
+	if err := http.ListenAndServe(port, r); err != nil {
 		log.Fatalf("Error starting server: %v\n", err)
 	}
 }
