@@ -44,22 +44,22 @@ tasks:
   docker:up-infra:
     desc: "Start infrastructure services (NATS, etc.)"
     cmds:
-      - docker-compose -f deploy/docker-compose.infra.yaml up -d
+      - docker-compose -f deploy/docker-compose.infra.yaml up -d {{.CLI_ARGS}}
 
   docker:down-infra:
     desc: "Stop infrastructure services"
     cmds:
-      - docker-compose -f deploy/docker-compose.infra.yaml down
+      - docker-compose -f deploy/docker-compose.infra.yaml down {{.CLI_ARGS}}
 
   docker:up-apps:
     desc: "Start application services (gateway, etc.)"
     cmds:
-      - docker-compose -f deploy/docker-compose.apps.yaml up -d
+      - docker-compose -f deploy/docker-compose.apps.yaml up -d {{.CLI_ARGS}}
 
   docker:down-apps:
     desc: "Stop application services"
     cmds:
-      - docker-compose -f deploy/docker-compose.apps.yaml down
+      - docker-compose -f deploy/docker-compose.apps.yaml down {{.CLI_ARGS}}
 
   docker:destroy:
     desc: "Stop and remove all containers, networks, volumes, and images"
