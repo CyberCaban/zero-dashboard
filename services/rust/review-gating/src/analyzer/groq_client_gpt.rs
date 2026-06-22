@@ -1,5 +1,6 @@
 use crate::{
     analyzer::{AiClient, prompt_for_sentiment_analysis, sentiment_analysis_request},
+    http_client::RetryableHttpClient,
     models::SentimentAnalysisResult,
 };
 
@@ -9,16 +10,14 @@ use tracing::{error, info};
 use crate::consts::SENTIMENT_ANALYSIS_URL;
 
 pub struct GroqClientGPT {
-    http_client: reqwest::Client,
-    api_key: String,
+    http_client: RetryableHttpClient,
     model: String,
 }
 
 impl GroqClientGPT {
-    pub fn new(http_client: reqwest::Client, api_key: String, model: String) -> Self {
+    pub fn new(http_client: RetryableHttpClient, api_key: String, model: String) -> Self {
         Self {
             http_client,
-            api_key,
             model,
         }
     }
@@ -37,10 +36,7 @@ impl AiClient for GroqClientGPT {
         info!("Sending request to AI for sentiment analysis...");
         let response = self
             .http_client
-            .post(SENTIMENT_ANALYSIS_URL)
-            .bearer_auth(self.api_key.clone())
-            .json(&request_body)
-            .send()
+            .post_json(SENTIMENT_ANALYSIS_URL, &request_body, "analyze_sentiment")
             .await
             .context("Failed to get response from AI")?;
 
