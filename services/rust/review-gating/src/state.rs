@@ -1,18 +1,16 @@
 use anyhow::Result;
 
-use crate::config;
+use crate::{analyzer::AiClient, config};
 
 pub struct AppState {
-    analyzer: crate::analyzer::Analyzer,
+    analyzer: Box<dyn AiClient>,
 }
 
 impl AppState {
-    pub async fn new(config: &config::Config) -> Result<Self> {
-        let analyzer =
-            crate::analyzer::Analyzer::new(config.groq_api_key.clone(), config.model.clone());
+    pub async fn new(config: &config::Config, analyzer: Box<dyn AiClient>) -> Result<Self> {
         Ok(Self { analyzer })
     }
-    pub fn analyzer(&self) -> &crate::analyzer::Analyzer {
+    pub fn analyzer(&self) -> &Box<dyn AiClient> {
         &self.analyzer
     }
 }

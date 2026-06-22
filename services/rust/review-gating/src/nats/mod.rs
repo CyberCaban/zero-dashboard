@@ -85,8 +85,6 @@ impl NatsServer {
             "Received inbound review request"
         );
 
-        println!("Received review request: {:#?}", req);
-
         let analysis = match state
             .analyzer()
             .analyze_sentiment(&req.payload.message.text)

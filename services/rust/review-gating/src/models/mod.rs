@@ -47,6 +47,7 @@ pub mod inbound {
 
 pub mod outbound {
     use serde::Serialize;
+    use serde_json::Value;
 
     use crate::models::SentimentAnalysisResult;
 
@@ -59,7 +60,11 @@ pub mod outbound {
         pub summary: String,
     }
     impl EscalationMessage {
-        pub fn from_analysis(result: SentimentAnalysisResult, session_id: String, business_id: String) -> Self {
+        pub fn from_analysis(
+            result: SentimentAnalysisResult,
+            session_id: String,
+            business_id: String,
+        ) -> Self {
             Self {
                 session_id,
                 business_id,
@@ -68,5 +73,19 @@ pub mod outbound {
                 summary: result.summary,
             }
         }
+    }
+
+    #[derive(Debug, Serialize)]
+    pub struct AiRequest {
+        pub model: String,
+        pub messages: Vec<AiMessage>,
+        pub response_format: Value,
+        pub temperature: f32,
+    }
+
+    #[derive(Debug, Serialize)]
+    pub struct AiMessage {
+        pub role: String,
+        pub content: String,
     }
 }
