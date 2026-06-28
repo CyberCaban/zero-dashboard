@@ -1,9 +1,12 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use reqwest::{StatusCode, retry};
 
-use crate::{http_client::RetryableHttpClient, retry::backoff::ExponentialBackoff};
+use crate::{
+    analyzer::circuit_breaker::CircuitBreaker, http_client::RetryableHttpClient,
+    retry::backoff::ExponentialBackoff,
+};
 
 pub struct HttpClientConfig {
     pub timeout: Duration,
@@ -12,6 +15,7 @@ pub struct HttpClientConfig {
     pub pool_max_idle_per_host: usize,
     pub tcp_keepalive: Duration,
     pub backoff: ExponentialBackoff,
+    pub circuit_breaker: CircuitBreaker,
     pub bearer_token: Option<String>,
 }
 
@@ -24,6 +28,7 @@ impl Default for HttpClientConfig {
             pool_max_idle_per_host: 10,
             tcp_keepalive: Duration::from_secs(60),
             backoff: ExponentialBackoff::default(),
+            circuit_breaker: CircuitBreaker::default(),
             bearer_token: None,
         }
     }
@@ -50,9 +55,10 @@ impl HttpClientConfig {
             .build()?)
     }
 
-    pub fn build_retryable_client(&self) -> Result<RetryableHttpClient> {
+    pub fn build_retryable_client(self) -> Result<RetryableHttpClient> {
         let inner = self.build_client()?;
-        let mut client = RetryableHttpClient::new(inner, self.backoff.clone());
+        let mut client =
+            RetryableHttpClient::new(inner, self.backoff.clone(), Arc::new(self.circuit_breaker));
 
         if let Some(token) = &self.bearer_token {
             client = client.with_bearer_token(token.clone());

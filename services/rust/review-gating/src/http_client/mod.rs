@@ -1,7 +1,12 @@
-use anyhow::Result;
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
 use reqwest::Response;
 
-use crate::retry::{self, backoff::ExponentialBackoff};
+use crate::{
+    analyzer::circuit_breaker::CircuitBreaker,
+    retry::{self, backoff::ExponentialBackoff},
+};
 
 pub mod config;
 
@@ -9,14 +14,20 @@ pub mod config;
 pub struct RetryableHttpClient {
     client: reqwest::Client,
     backoff: ExponentialBackoff,
+    circuit_breaker: Arc<CircuitBreaker>,
     bearer_token: Option<String>,
 }
 
 impl RetryableHttpClient {
-    pub fn new(client: reqwest::Client, backoff: ExponentialBackoff) -> Self {
+    pub fn new(
+        client: reqwest::Client,
+        backoff: ExponentialBackoff,
+        circuit_breaker: Arc<CircuitBreaker>,
+    ) -> Self {
         Self {
             client,
             backoff,
+            circuit_breaker,
             bearer_token: None,
         }
     }
@@ -29,10 +40,13 @@ impl RetryableHttpClient {
         request_builder: reqwest::RequestBuilder,
         operation_name: &str,
     ) -> Result<Response> {
+        if !self.circuit_breaker.is_request_allowed().await {
+            bail!("Circuit breaker is OPEN for operation: {}", operation_name);
+        }
         let backoff = self.backoff.clone();
         let bearer_token = self.bearer_token.clone();
 
-        retry::retry_with_backoff(
+        let result = retry::retry_with_backoff(
             || {
                 let mut builder = request_builder
                     .try_clone()
@@ -55,7 +69,18 @@ impl RetryableHttpClient {
             backoff,
             operation_name,
         )
-        .await
+        .await;
+
+        match result {
+            Ok(value) => {
+                self.circuit_breaker.record_success().await;
+                Ok(value)
+            }
+            Err(e) => {
+                self.circuit_breaker.record_failure().await;
+                bail!(e.to_string())
+            }
+        }
     }
     pub async fn post_json<T: serde::Serialize>(
         &self,

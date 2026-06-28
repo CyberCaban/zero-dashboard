@@ -1,6 +1,7 @@
 use crate::models::{SentimentAnalysisResult, outbound::{AiMessage, AiRequest}};
 
 pub mod groq_client_gpt;
+pub mod circuit_breaker;
 
 #[async_trait::async_trait]
 pub trait AiClient: Send + Sync {
