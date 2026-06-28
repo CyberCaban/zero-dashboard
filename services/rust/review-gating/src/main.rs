@@ -30,6 +30,21 @@ fn http_client() -> &'static RetryableHttpClient {
     })
 }
 
+#[cfg(unix)]
+async fn shutdown_signal() {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate()).expect("register SIGTERM handler");
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = term.recv() => {}
+    }
+}
+
+#[cfg(windows)]
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c().await.expect("listen Ctrl+C");
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     logger::init_logger();
@@ -44,11 +59,20 @@ async fn main() -> Result<()> {
     let state = Arc::new(state::AppState::new(&config, analyzer).await?);
     let nats_server = nats::NatsServer::new(&config, state).await?;
 
-    nats_server.handle_inbound_reviews().await?;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
+    let consumer_handle = nats_server.handle_inbound_reviews(shutdown_rx).await?;
 
-    tokio::signal::ctrl_c()
+    shutdown_signal().await;
+    tracing::info!("Shutdown signal received, stopping consumer...");
+
+    let _ = shutdown_tx.send(());
+    if tokio::time::timeout(Duration::from_secs(30), consumer_handle)
         .await
-        .expect("Failed to listen for shutdown signal");
-    tracing::info!("Shutting down gracefully...");
+        .is_err()
+    {
+        tracing::warn!("Consumer did not stop in 30s, forcing shutdown");
+    }
+
+    tracing::info!("Shutdown complete");
     Ok(())
 }

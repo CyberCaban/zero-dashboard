@@ -29,7 +29,10 @@ impl NatsServer {
             state,
         })
     }
-    pub async fn handle_inbound_reviews(&self) -> Result<()> {
+    pub async fn handle_inbound_reviews(
+        &self,
+        mut shutdown: tokio::sync::watch::Receiver<()>,
+    ) -> Result<tokio::task::JoinHandle<()>> {
         use futures_util::StreamExt;
         let js = self.jetstream.clone();
         let inbound_stream = js
@@ -57,12 +60,32 @@ impl NatsServer {
         let mut messages = consumer.messages().await?;
         let mut js_context = self.jetstream.clone();
         let state = self.state.clone();
-        tokio::spawn(async move {
-            while let Some(Ok(message)) = messages.next().await {
-                Self::handle_inbound_review_message(&mut js_context, message, &state).await;
+        let handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    // Without biased, tokio randomizes which branch is polled first (to prevent starvation). 
+                    // With biased, branches are polled in order. 
+                    // `biased` is used here to prioritize the shutdown signal over message processing, 
+                    // ensuring that the server can shut down promptly when requested. 
+                    biased;
+                    msg = messages.next() => {
+                        match msg {
+                            Some(Ok(message)) => {
+                                Self::handle_inbound_review_message(&mut js_context, message, &state).await;
+                            }
+                            Some(Err(e)) => {
+                                error!(error = %e, "Consumer stream error");
+                            }
+                            None => break,
+                        }
+                    }
+                    _ = shutdown.changed() => {
+                        break;
+                    }
+                }
             }
         });
-        Ok(())
+        Ok(handle)
     }
     async fn handle_inbound_review_message(
         js_context: &mut async_nats::jetstream::Context,
