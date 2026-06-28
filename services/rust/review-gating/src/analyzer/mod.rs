@@ -1,11 +1,43 @@
-use crate::models::{SentimentAnalysisResult, outbound::{AiMessage, AiRequest}};
+use crate::consts::MAX_REVIEW_LENGTH;
+use crate::models::{
+    SentimentAnalysisResult,
+    outbound::{AiMessage, AiRequest},
+};
 
 pub mod groq_client_gpt;
-pub mod circuit_breaker;
 
 #[async_trait::async_trait]
 pub trait AiClient: Send + Sync {
     async fn analyze_sentiment(&self, text: &str) -> anyhow::Result<SentimentAnalysisResult>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AnalysisError {
+    #[error("HTTP request failed: {0}")]
+    HttpError(#[from] reqwest::Error),
+
+    #[error("JSON serialization/deserialization error: {0}")]
+    JsonError(String),
+
+    #[error("AI response format error: {0}")]
+    FormatError(String),
+
+    #[error("Review text is too long, max: {MAX_REVIEW_LENGTH}")]
+    ReviewTextTooLong,
+
+    #[error("Failed to extract content from AI response")]
+    ExtractionError
+    // #[error("Rate limit exceeded")]
+    // RateLimitExceeded,
+
+    // #[error("Circuit breaker is open")]
+    // CircuitOpen,
+
+    // #[error("Timeout exceeded")]
+    // Timeout,
+
+    // #[error("Retry attempts exhausted")]
+    // RetryExhausted,
 }
 
 pub fn prompt_for_sentiment_analysis(text: &str) -> String {

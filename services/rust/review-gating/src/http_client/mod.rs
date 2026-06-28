@@ -4,11 +4,24 @@ use anyhow::{Result, bail};
 use reqwest::Response;
 
 use crate::{
-    analyzer::circuit_breaker::CircuitBreaker,
+    http_client::circuit_breaker::CircuitBreaker,
     retry::{self, backoff::ExponentialBackoff},
 };
 
+pub mod circuit_breaker;
 pub mod config;
+
+#[derive(Debug, thiserror::Error)]
+pub enum HttpClientError {
+    #[error("Circuit breaker is open for operation {0}")]
+    CircuitOpen(String),
+
+    #[error("Timeout exceeded")]
+    Timeout,
+
+    #[error("Retry attempts exhausted")]
+    RetryExhausted,
+}
 
 #[derive(Clone)]
 pub struct RetryableHttpClient {
@@ -41,7 +54,7 @@ impl RetryableHttpClient {
         operation_name: &str,
     ) -> Result<Response> {
         if !self.circuit_breaker.is_request_allowed().await {
-            bail!("Circuit breaker is OPEN for operation: {}", operation_name);
+            bail!(HttpClientError::CircuitOpen(operation_name.to_owned()));
         }
         let backoff = self.backoff.clone();
         let bearer_token = self.bearer_token.clone();
@@ -76,9 +89,9 @@ impl RetryableHttpClient {
                 self.circuit_breaker.record_success().await;
                 Ok(value)
             }
-            Err(e) => {
+            Err(_) => {
                 self.circuit_breaker.record_failure().await;
-                bail!(e.to_string())
+                bail!(HttpClientError::RetryExhausted)
             }
         }
     }

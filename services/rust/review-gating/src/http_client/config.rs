@@ -4,7 +4,7 @@ use anyhow::Result;
 use reqwest::{StatusCode, retry};
 
 use crate::{
-    analyzer::circuit_breaker::CircuitBreaker, http_client::RetryableHttpClient,
+    http_client::{RetryableHttpClient, circuit_breaker::CircuitBreaker},
     retry::backoff::ExponentialBackoff,
 };
 

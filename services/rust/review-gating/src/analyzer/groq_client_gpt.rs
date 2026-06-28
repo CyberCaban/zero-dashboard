@@ -1,5 +1,8 @@
 use crate::{
-    analyzer::{AiClient, prompt_for_sentiment_analysis, sentiment_analysis_request},
+    analyzer::{
+        AiClient, AnalysisError, prompt_for_sentiment_analysis, sentiment_analysis_request,
+    },
+    consts::MAX_REVIEW_LENGTH,
     http_client::RetryableHttpClient,
     models::SentimentAnalysisResult,
 };
@@ -16,10 +19,7 @@ pub struct GroqClientGPT {
 
 impl GroqClientGPT {
     pub fn new(http_client: RetryableHttpClient, api_key: String, model: String) -> Self {
-        Self {
-            http_client,
-            model,
-        }
+        Self { http_client, model }
     }
 }
 
@@ -29,6 +29,10 @@ impl AiClient for GroqClientGPT {
         &self,
         text: &str,
     ) -> anyhow::Result<crate::models::SentimentAnalysisResult> {
+        if text.len() > MAX_REVIEW_LENGTH {
+            bail!(AnalysisError::ReviewTextTooLong);
+        }
+
         let prompt = prompt_for_sentiment_analysis(text);
 
         let request_body = sentiment_analysis_request(self.model.clone(), prompt);
@@ -37,20 +41,29 @@ impl AiClient for GroqClientGPT {
         let response = self
             .http_client
             .post_json(SENTIMENT_ANALYSIS_URL, &request_body, "analyze_sentiment")
-            .await
-            .context("Failed to get response from AI")?;
+            .await?;
 
-        let Ok(raw_json): Result<serde_json::Value, _> = response.json().await else {
-            bail!("Failed to read AI response json");
+        let raw_json: serde_json::Value = match response.json().await {
+            Ok(raw_json) => raw_json,
+            Err(e) => {
+                if e.is_decode() {
+                    bail!(AnalysisError::JsonError(e.to_string()));
+                } else {
+                    bail!(AnalysisError::HttpError(e))
+                }
+            }
         };
 
         let response = raw_json["choices"][0]["message"]["content"]
             .as_str()
-            .context("Failed to extract content from AI response")?;
+            .ok_or(AnalysisError::ExtractionError)?;
 
-        let Ok(analysis_result) = serde_json::from_str::<SentimentAnalysisResult>(response) else {
-            error!("Raw AI response content: {}", response);
-            bail!("Failed to parse AI response as SentimentAnalysisResult");
+        let analysis_result =  match serde_json::from_str::<SentimentAnalysisResult>(response) {
+            Ok(analysis_result) => analysis_result,
+            Err(e) => {
+                error!("Raw AI response content: {}", response);
+                bail!(AnalysisError::FormatError(e.to_string()));
+            }
         };
 
         Ok(analysis_result)
