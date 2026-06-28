@@ -26,18 +26,7 @@ pub enum AnalysisError {
     ReviewTextTooLong,
 
     #[error("Failed to extract content from AI response")]
-    ExtractionError
-    // #[error("Rate limit exceeded")]
-    // RateLimitExceeded,
-
-    // #[error("Circuit breaker is open")]
-    // CircuitOpen,
-
-    // #[error("Timeout exceeded")]
-    // Timeout,
-
-    // #[error("Retry attempts exhausted")]
-    // RetryExhausted,
+    ExtractionError,
 }
 
 pub fn prompt_for_sentiment_analysis(text: &str) -> String {

@@ -19,8 +19,17 @@ pub enum HttpClientError {
     #[error("Timeout exceeded")]
     Timeout,
 
+    #[error("Failed to clone request builder")]
+    CloneRequestBuilderError,
+
     #[error("Retry attempts exhausted")]
     RetryExhausted,
+
+    #[error("HTTP request failed with status: {0}")]
+    ResponseError(u16),
+
+    #[error("HTTP request failed: {0}")]
+    RequestError(#[from] reqwest::Error),
 }
 
 #[derive(Clone)]
@@ -60,23 +69,27 @@ impl RetryableHttpClient {
         let bearer_token = self.bearer_token.clone();
 
         let result = retry::retry_with_backoff(
-            || {
+            async || {
                 let mut builder = request_builder
                     .try_clone()
-                    .expect("Failed to clone request builder");
+                    .ok_or_else(|| HttpClientError::CloneRequestBuilderError)?;
                 if let Some(token) = &bearer_token {
                     builder = builder.bearer_auth(token);
                 }
-                async move {
-                    let response = builder.send().await?;
-                    if response.status().is_success() {
-                        Ok(response)
-                    } else {
-                        Err(anyhow::anyhow!(
-                            "HTTP request failed with status {}",
-                            response.status()
-                        ))
+                let response = match builder.send().await {
+                    Ok(resp) => resp,
+                    Err(e) => {
+                        if e.is_timeout() {
+                            return Err(HttpClientError::Timeout);
+                        } else {
+                            return Err(HttpClientError::RequestError(e));
+                        }
                     }
+                };
+                if response.status().is_success() {
+                    Ok(response)
+                } else {
+                    Err(HttpClientError::ResponseError(response.status().as_u16()))
                 }
             },
             backoff,
